@@ -5,8 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Stall Payment</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Add Razorpay Checkout Library -->
-    <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
 </head>
 <body class="bg-gray-100 flex items-center justify-center min-h-screen">
     <div class="bg-white p-8 rounded-lg shadow-md w-full max-w-sm m-4">
@@ -53,9 +51,7 @@
             stallSelect.value = stallParam;
         }
 
-        // Configuration
         const WEBHOOK_URL = 'https://script.google.com/macros/s/AKfycbyj5g9jxVRY7H6mwMwi0mxJXUDN3qoUNyU_3MtQKFP6xVIJSKawLnF07smBTDiVr1ca1A/exec';
-        const RAZORPAY_KEY = 'rzp_test_YourTestKeyHere'; // Replace with your actual Razorpay Key ID
 
         document.getElementById('payBtn').addEventListener('click', async () => {
             const stallElement = document.getElementById('stallSelect');
@@ -90,85 +86,58 @@
             const selectedOption = stallElement.options[stallElement.selectedIndex];
             const stallName = selectedOption.text;
 
-            // Initialize Razorpay Options
-            const options = {
-                "key": RAZORPAY_KEY, // Enter the Key ID generated from the Razorpay Dashboard
-                "amount": parseInt(amount) * 100, // Amount is in currency subunits (paise)
-                "currency": "INR",
-                "name": stallName,
-                "description": "Payment for " + stallName,
-                "handler": async function (response) {
-                    // This function runs ONLY when the payment is SUCCESSFUL
-                    const paymentId = response.razorpay_payment_id;
-                    
-                    messageEl.textContent = 'Saving successful payment...';
-                    messageEl.className = 'mt-4 text-center text-sm font-medium text-blue-600 block';
-                    messageEl.classList.remove('hidden');
+            // Extract UPI mapping details directly from the Stall selection!
+            const stallUpi = selectedOption.getAttribute('data-upi');
+            const stallUpiName = selectedOption.getAttribute('data-name');
 
-                    const payload = {
-                        stallId: stallId,
-                        stallName: stallName,
-                        amount: amount,
-                        paymentId: paymentId,
-                        timestamp: new Date().toISOString()
-                    };
-
-                    try {
-                        if (WEBHOOK_URL) {
-                            await fetch(WEBHOOK_URL, {
-                                method: 'POST',
-                                mode: 'no-cors',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify(payload)
-                            });
-                        }
-                        
-                        messageEl.textContent = 'Payment Successful! ID: ' + paymentId;
-                        messageEl.className = 'mt-4 text-center text-sm font-bold text-green-600 block';
-                    } catch (error) {
-                        console.error('Error logging payment:', error);
-                        messageEl.textContent = 'Payment succeeded, but logging failed. Show this to the vendor: ' + paymentId;
-                        messageEl.className = 'mt-4 text-center text-sm font-medium text-yellow-600 block';
-                    } finally {
-                        btn.disabled = false;
-                        btn.classList.remove('opacity-75', 'cursor-not-allowed');
-                        btnText.textContent = 'Pay Again';
-                        spinner.classList.add('hidden');
-                    }
-                },
-                "modal": {
-                    "ondismiss": function() {
-                        messageEl.textContent = 'Payment cancelled by user.';
-                        messageEl.className = 'mt-4 text-center text-sm font-medium text-red-600 block';
-                        messageEl.classList.remove('hidden');
-                        
-                        btn.disabled = false;
-                        btn.classList.remove('opacity-75', 'cursor-not-allowed');
-                        btnText.textContent = 'Pay Now';
-                        spinner.classList.add('hidden');
-                    }
-                },
-                "theme": {
-                    "color": "#2563EB"
-                }
+            // 3. The Logic (Recording Data)
+            const payload = {
+                stallId: stallId,
+                stallName: stallName,
+                amount: amount,
+                timestamp: new Date().toISOString()
             };
 
-            // Open the Razorpay Payment Gateway popup!
-            const rzp1 = new Razorpay(options);
-            
-            rzp1.on('payment.failed', function (response){
-                // This triggers if a payment is attempted but fails (e.g. insufficient funds)
-                messageEl.textContent = 'Payment Failed! Reason: ' + response.error.description;
-                messageEl.className = 'mt-4 text-center text-sm font-medium text-red-600 block';
-                messageEl.classList.remove('hidden');
+            try {
+                if (WEBHOOK_URL) {
+                    await fetch(WEBHOOK_URL, {
+                        method: 'POST',
+                        mode: 'no-cors', // Important for simple Google Apps Script setup
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify(payload)
+                    });
+                } else {
+                    // Simulate processing delay if no URL is provided
+                    console.log('Payment logged locally:', payload);
+                    await new Promise(resolve => setTimeout(resolve, 1000)); 
+                }
 
-                btn.disabled = false;
-                btn.classList.remove('opacity-75', 'cursor-not-allowed');
-                btnText.textContent = 'Retry Payment';
-                spinner.classList.add('hidden');
-            });
+                // 4. The Redirect to UPI link
+                messageEl.textContent = 'Redirecting to payment app...';
+                messageEl.className = 'mt-4 text-center text-sm font-medium text-green-600 block';
+                // &tn= used for transaction note so the stall name shows up in your bank statement!
+                const upiUrl = `upi://pay?pa=${stallUpi}&pn=${stallUpiName}&am=${amount}&cu=INR&tn=Payment for ${stallName}`;
+                window.location.href = upiUrl;
 
-            rzp1.open();
+            } catch (error) {
+                console.error('Error logging payment:', error);
+                messageEl.textContent = 'Logging failed. Redirecting to payment anyway...';
+                messageEl.className = 'mt-4 text-center text-sm font-medium text-yellow-600 block';
+                
+                // Still allow payment redirect even if logging fails
+                const upiUrl = `upi://pay?pa=${stallUpi}&pn=${stallUpiName}&am=${amount}&cu=INR&tn=Payment for ${stallName}`;
+                setTimeout(() => { window.location.href = upiUrl; }, 1500);
+            } finally {
+                // Reset UI in case user returns to the page
+                setTimeout(() => {
+                    btn.disabled = false;
+                    btn.classList.remove('opacity-75', 'cursor-not-allowed');
+                    btnText.textContent = 'Pay Now';
+                    spinner.classList.add('hidden');
+                }, 3000);
+            }
         });
     </script>
 </body>

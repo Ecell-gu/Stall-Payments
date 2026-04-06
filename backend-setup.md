@@ -4,7 +4,7 @@ A simple, free backend using Google Sheets to track payment clicks.
 
 ## Step 1: Create a Google Sheet
 1. Go to Google Sheets and create a new spreadsheet named "Stall Payments".
-2. Set the Headers in the first row: `Timestamp`, `Stall ID`, `Stall Name`, `Amount`, and `Payment ID`.
+2. Set the Headers in the first row: `Timestamp`, `Stall ID`, `Stall Name`, and `Amount`.
 
 ## Step 2: Add Apps Script
 1. In the Google Sheet, go to **Extensions > Apps Script**.
@@ -16,8 +16,8 @@ function doPost(e) {
     var sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
     var data = JSON.parse(e.postData.contents);
     
-    // Append the row mapping to [Timestamp, Stall ID, Stall Name, Amount, Payment ID]
-    sheet.appendRow([data.timestamp, data.stallId, data.stallName, data.amount, data.paymentId]);
+    // Append the row mapping to [Timestamp, Stall ID, Stall Name, Amount]
+    sheet.appendRow([data.timestamp, data.stallId, data.stallName, data.amount]);
     
     // Return success
     return ContentService.createTextOutput(JSON.stringify({ "status": "success" }))
