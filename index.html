@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stall Payment</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 flex items-center justify-center min-h-screen">
+    <div class="bg-white p-8 rounded-lg shadow-md w-full max-w-sm m-4">
+        <h1 class="text-2xl font-bold text-center mb-6 text-gray-800">Stall Payment</h1>
+        
+        <div class="mb-5">
+            <label for="stallSelect" class="block text-sm font-medium text-gray-700 mb-2">Select Stall</label>
+            <select id="stallSelect" class="w-full px-4 py-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-lg bg-white" required>
+                <option value="" disabled selected>Select a stall...</option>
+                <!-- Add your stalls and their IDs here. Value = Stall ID, Text = Stall Name -->
+                <option value="Stall_01">Stall 1</option>
+                <option value="Stall_02">Stall 2</option>
+                <option value="Stall_03">Stall 3</option>
+            </select>
+        </div>
+
+        <div class="mb-5">
+            <label for="amount" class="block text-sm font-medium text-gray-700 mb-2">Payment Amount (INR)</label>
+            <div class="relative">
+                <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-500 font-bold">₹</span>
+                <input type="number" id="amount" class="w-full pl-8 pr-4 py-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-lg" placeholder="0.00" required min="1">
+            </div>
+        </div>
+        
+        <button id="payBtn" class="w-full bg-blue-600 text-white font-bold py-3 px-4 rounded-md hover:bg-blue-700 transition duration-300 flex justify-center items-center shadow-lg">
+            <span id="btnText">Pay Now</span>
+            <!-- Loading Spinner -->
+            <svg id="spinner" class="animate-spin ml-2 h-5 w-5 text-white hidden" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+        </button>
+        <p id="message" class="mt-4 text-center text-sm font-medium hidden"></p>
+    </div>
+
+    <script>
+        // 1. URL Structure & Interface Initialization
+        const urlParams = new URLSearchParams(window.location.search);
+        const stallParam = urlParams.get('stall');
+        const stallSelect = document.getElementById('stallSelect');
+        
+        // If a stall ID was passed in URL, pre-select it
+        if (stallParam) {
+            stallSelect.value = stallParam;
+        }
+
+        // Configuration
+        const WEBHOOK_URL = 'https://script.google.com/macros/s/AKfycbyj5g9jxVRY7H6mwMwi0mxJXUDN3qoUNyU_3MtQKFP6xVIJSKawLnF07smBTDiVr1ca1A/exec';
+        const VENDOR_UPI = '8265861672@rapl'; // Hardcoded test UPI
+        const VENDOR_NAME = 'warygeneral'; // Hardcoded test Name
+
+        document.getElementById('payBtn').addEventListener('click', async () => {
+            const stallSelectValue = document.getElementById('stallSelect').value;
+            const amount = document.getElementById('amount').value;
+            const messageEl = document.getElementById('message');
+            
+            if (!stallSelectValue) {
+                messageEl.textContent = 'Please select a stall from the list.';
+                messageEl.className = 'mt-4 text-center text-sm font-medium text-red-600 block';
+                return;
+            }
+
+            if (!amount || amount <= 0) {
+                messageEl.textContent = 'Please enter a valid amount.';
+                messageEl.className = 'mt-4 text-center text-sm font-medium text-red-600 block';
+                return;
+            }
+
+            // 2. Set "Processing..." State
+            const btn = document.getElementById('payBtn');
+            const btnText = document.getElementById('btnText');
+            const spinner = document.getElementById('spinner');
+            
+            btn.disabled = true;
+            btn.classList.add('opacity-75', 'cursor-not-allowed');
+            btnText.textContent = 'Processing...';
+            spinner.classList.remove('hidden');
+            messageEl.classList.add('hidden');
+
+            const stallElement = document.getElementById('stallSelect');
+            const stallId = stallElement.value;
+            const stallName = stallElement.options[stallElement.selectedIndex].text;
+
+            // 3. The Logic (Recording Data)
+            const payload = {
+                stallId: stallId,
+                stallName: stallName,
+                vendorName: VENDOR_NAME,
+                amount: amount,
+                timestamp: new Date().toISOString()
+            };
+
+            try {
+                if (WEBHOOK_URL) {
+                    await fetch(WEBHOOK_URL, {
+                        method: 'POST',
+                        mode: 'no-cors', // Important for simple Google Apps Script setup
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify(payload)
+                    });
+                } else {
+                    // Simulate processing delay if no URL is provided
+                    console.log('Payment logged locally:', payload);
+                    await new Promise(resolve => setTimeout(resolve, 1000)); 
+                }
+
+                // 4. The Redirect to UPI link
+                messageEl.textContent = 'Redirecting to payment app...';
+                messageEl.className = 'mt-4 text-center text-sm font-medium text-green-600 block';
+                // &tn= used for transaction note so the stall name shows up in your bank statement!
+                const upiUrl = `upi://pay?pa=${VENDOR_UPI}&pn=${VENDOR_NAME}&am=${amount}&cu=INR&tn=Payment for ${stallName}`;
+                window.location.href = upiUrl;
+
+            } catch (error) {
+                console.error('Error logging payment:', error);
+                messageEl.textContent = 'Logging failed. Redirecting to payment anyway...';
+                messageEl.className = 'mt-4 text-center text-sm font-medium text-yellow-600 block';
+                
+                // Still allow payment redirect even if logging fails
+                const upiUrl = `upi://pay?pa=${VENDOR_UPI}&pn=${VENDOR_NAME}&am=${amount}&cu=INR&tn=Payment for ${stallName}`;
+                setTimeout(() => { window.location.href = upiUrl; }, 1500);
+            } finally {
+                // Reset UI in case user returns to the page
+                setTimeout(() => {
+                    btn.disabled = false;
+                    btn.classList.remove('opacity-75', 'cursor-not-allowed');
+                    btnText.textContent = 'Pay Now';
+                    spinner.classList.add('hidden');
+                }, 3000);
+            }
+        });
+    </script>
+</body>
+</html>
