@@ -4,7 +4,7 @@ A simple, free backend using Google Sheets to track payment clicks.
 
 ## Step 1: Create a Google Sheet
 1. Go to Google Sheets and create a new spreadsheet named "Stall Payments".
-2. Set the Headers in the first row: `Timestamp`, `Stall ID`, `Stall Name`, and `Amount`.
+2. Set the Headers in the first row: `Timestamp`, `Stall ID`, `Stall Name`, `Amount`, `UTR/Ref Number`, and `Status`.
 
 ## Step 2: Add Apps Script
 1. In the Google Sheet, go to **Extensions > Apps Script**.
@@ -16,8 +16,8 @@ function doPost(e) {
     var sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
     var data = JSON.parse(e.postData.contents);
     
-    // Append the row mapping to [Timestamp, Stall ID, Stall Name, Amount]
-    sheet.appendRow([data.timestamp, data.stallId, data.stallName, data.amount]);
+    // Append the row mapping to [Timestamp, Stall ID, Stall Name, Amount, UTR, Status]
+    sheet.appendRow([data.timestamp, data.stallId, data.stallName, data.amount, data.utrId, data.status]);
     
     // Return success
     return ContentService.createTextOutput(JSON.stringify({ "status": "success" }))
@@ -44,5 +44,5 @@ function doPost(e) {
 2. Find the constant `WEBHOOK_URL` in the `<script>` section.
 3. Replace the empty string with your copied Web app URL:
 ```javascript
-const WEBHOOK_URL = 'https://script.google.com/macros/s/AKfycbyj5g9jxVRY7H6mwMwi0mxJXUDN3qoUNyU_3MtQKFP6xVIJSKawLnF07smBTDiVr1ca1A/exec';
+const WEBHOOK_URL = 'https://script.google.com/macros/s/AKfycbxnw5ZTEa-EJm_F8SKuyndTVAOk0XYq4lGrFYmmTGe2I2L8iDT1Wlf6KgEHrhHu-XRjNQ/exec';
 ```
