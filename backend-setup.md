@@ -4,7 +4,7 @@ A simple, free backend using Google Sheets to track payment clicks.
 
 ## Step 1: Create a Google Sheet
 1. Go to Google Sheets and create a new spreadsheet named "Stall Payments".
-2. Set the Headers in the first row: `Timestamp`, `Stall ID`, `Stall Name`, `Amount`, `UTR/Ref Number`, and `Status`.
+2. Set the Headers in the first row: `Timestamp`, `Stall ID`, `Stall Name`, `Amount`, `Screenshot URL`, and `Status`.
 
 ## Step 2: Add Apps Script
 1. In the Google Sheet, go to **Extensions > Apps Script**.
@@ -16,8 +16,23 @@ function doPost(e) {
     var sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
     var data = JSON.parse(e.postData.contents);
     
-    // Append the row mapping to [Timestamp, Stall ID, Stall Name, Amount, UTR, Status]
-    sheet.appendRow([data.timestamp, data.stallId, data.stallName, data.amount, data.utrId, data.status]);
+    // Process screenshot if present
+    var screenshotUrl = "No Screenshot";
+    if (data.image) {
+      var decode = Utilities.base64Decode(data.image);
+      // Give the file a structured name format: StallID_timestamp.ext
+      var fileName = data.stallId + "_" + new Date().getTime();
+      var blob = Utilities.newBlob(decode, data.mimeType, fileName);
+      
+      // Uploads to root Google Drive folder
+      var file = DriveApp.createFile(blob);
+      // Make it viewable by anyone with the link
+      file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+      screenshotUrl = file.getUrl();
+    }
+
+    // Append the row mapping to [Timestamp, Stall ID, Stall Name, Amount, Screenshot URL, Status]
+    sheet.appendRow([data.timestamp, data.stallId, data.stallName, data.amount, screenshotUrl, data.status]);
     
     // Return success
     return ContentService.createTextOutput(JSON.stringify({ "status": "success" }))
@@ -38,6 +53,14 @@ function doPost(e) {
 5. Under "Who has access", select **Anyone** (This allows our fetch request to post data without authentication).
 6. Click **Deploy**. (You will need to authorize permissions on the next screen).
 7. Copy the generated **Web app URL**.
+
+### How to Update Apps Script Without Changing the URL
+If you change the Apps Script code, do **not** create a new deployment (otherwise the URL changes). Instead:
+1. Click **Deploy > Manage deployments**.
+2. Select your active deployment from the left menu.
+3. Click the pencil/edit icon on the right side.
+4. Under the **Version** dropdown, select **New version**.
+5. Click **Deploy**. This updates your live app while keeping the same Web App URL!
 
 ## Step 4: Connect to your App
 1. Go to `index.html` in your codebase.
